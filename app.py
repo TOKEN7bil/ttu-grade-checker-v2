@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request
 import sqlite3
 import openpyxl
 import os
@@ -8,7 +8,6 @@ app = Flask(__name__)
 DB_NAME = "grades.db"
 EXCEL_FILE = "data.xlsx"
 
-# 1. INIT DATABASE AND LOAD EXCEL WITH OPENPYXL
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
@@ -19,9 +18,7 @@ def init_db():
     
     if os.path.exists(EXCEL_FILE):
         wb = openpyxl.load_workbook(EXCEL_FILE)
-        sheet = wb['grades'] # name of your sheet
-        
-        # skip header row
+        sheet = wb['grades']
         for row in sheet.iter_rows(min_row=2, values_only=True):
             index_no, course, grade = row
             cursor.execute("INSERT INTO grades VALUES (?,?,?)", 
@@ -44,23 +41,19 @@ def check_login(index_no, password):
     return password == index_no[-4:]
 
 
-# 2. USSD ENDPOINT - JSON MODE FOR ARKESEL
 @app.route("/ussd", methods=['POST'])
 def ussd():
     text = request.values.get("text", "")
     inputs = text.split('*')
 
     if text == "":
-        message = "Welcome to TTU Grade Checker\n1. Login to view grades\n2. Exit"
-        response = {"type": "response", "message": message}
+        message = "CON Welcome to TTU Grade Checker\n1. Login to view grades\n2. Exit"
     
     elif text == "1":
-        message = "Enter your Index Number:"
-        response = {"type": "response", "message": message}
+        message = "CON Enter your Index Number:"
     
     elif len(inputs) == 2:
-        message = "Enter your Password:"
-        response = {"type": "response", "message": message}
+        message = "CON Enter your Password:"
     
     elif len(inputs) == 3:
         index_no = inputs[1].upper()
@@ -69,23 +62,23 @@ def ussd():
         if check_login(index_no, password):
             results = get_grades(index_no)
             if results:
-                msg = f"Results for {index_no}:\n"
+                msg = f"END Results for {index_no}:\n"
                 for course, grade in results:
                     msg += f"{course}: {grade}\n"
             else:
-                msg = "No results found for this Index Number"
+                msg = "END No results found for this Index Number"
         else:
-            msg = "Wrong Password. Try again"
+            msg = "END Wrong Password. Try again"
         
-        response = {"type": "end", "message": msg}
+        message = msg
     
     elif text == "2":
-        response = {"type": "end", "message": "Thank you for using TTU Grade Checker"}
+        message = "END Thank you for using TTU Grade Checker"
     
     else:
-        response = {"type": "end", "message": "Invalid option"}
+        message = "END Invalid option"
 
-    return jsonify(response)
+    return message, 200, {'Content-Type': 'text/plain'}
 
 
 if __name__ == "__main__":
