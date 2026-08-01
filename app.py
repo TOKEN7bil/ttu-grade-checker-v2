@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import sqlite3
 import openpyxl
 import os
@@ -48,12 +48,15 @@ def ussd():
 
     if text == "":
         message = "CON Welcome to TTU Grade Checker\n1. Login to view grades\n2. Exit"
+        response_type = "response"
     
     elif text == "1":
         message = "CON Enter your Index Number:"
+        response_type = "response"
     
     elif len(inputs) == 2:
         message = "CON Enter your Password:"
+        response_type = "response"
     
     elif len(inputs) == 3:
         index_no = inputs[1].upper()
@@ -71,14 +74,17 @@ def ussd():
             msg = "END Wrong Password. Try again"
         
         message = msg
+        response_type = "end"
     
     elif text == "2":
         message = "END Thank you for using TTU Grade Checker"
+        response_type = "end"
     
     else:
         message = "END Invalid option"
+        response_type = "end"
 
-    return message, 200, {'Content-Type': 'text/plain'}
+    return jsonify({"type": response_type, "message": message})
 
 
 if __name__ == "__main__":
