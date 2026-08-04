@@ -4,21 +4,18 @@ import os
 
 app = Flask(__name__)
 
-# Load data once when app starts
-def load_data():
+def load_students():
     students = {}
     passwords = {}
-    grades = {}
-    
-    # Load students
     with open('data_students.csv', 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
-            idx = row['index_number'].strip()
-            students[idx] = row['full_name'].strip()
-            passwords[idx] = row['password'].strip()
-    
-    # Load grades
+            students[row['index_number'].strip()] = row['full_name'].strip()
+            passwords[row['index_number'].strip()] = row['password'].strip()
+    return students, passwords
+
+def load_grades():
+    grades = {}
     with open('data_grades.csv', 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -26,51 +23,41 @@ def load_data():
             if idx not in grades:
                 grades[idx] = []
             grades[idx].append(f"{row['course_code'].strip()}: {row['grade'].strip()}")
-    
-    return students, passwords, grades
+    return grades
 
-students, passwords, grades = load_data()
+students, passwords = load_students()
+grades = load_grades()
 
-@app.route('/', methods=['GET', 'POST']) # ARKESEL USES ROOT /
+@app.route('/ussd/', methods=['GET', 'POST']) # <-- MATCHES YOUR ARKESEL URL
 def ussd():
-    # Get data - Arkesel sends POST
+    if request.method == 'GET':
+        return Response("CON Welcome to TTU Grade Checker\n1. Check Results", mimetype='text/plain')
+    
     text = request.values.get('text', '')
-    
-    # Level 0: Main Menu
+
     if text == '':
-        response = "CON Welcome to TTU Grade Checker\n"
-        response += "1. Check Results"
-    
-    # Level 1: Ask for login
+        response = "CON Welcome to TTU Grade Checker\n1. Check Results"
     elif text == '1':
-        response = "CON Enter IndexNumber*Password\n"
-        response += "Example: BCITD22003*EOB22"
-    
-    # Level 2: Process login
+        response = "CON Enter IndexNumber*Password\nExample: BCITD22003*EOB22"
     else:
         try:
             parts = text.split('*')
-            if len(parts) == 2:
-                index_number = parts[0].strip().upper()
-                pin = parts[1].strip()
-                
-                if index_number in students and passwords[index_number] == pin:
-                    student_grades = grades.get(index_number, [])
-                    if student_grades:
-                        response = f"END Welcome {students[index_number]}\n\n"
-                        response += "RESULTS:\n"
-                        response += "\n".join(student_grades)
-                        response += "\n\nPowered by TTU"
-                    else:
-                        response = "END No results found for this index number"
+            index_number = parts[0].strip().upper()
+            pin = parts[1].strip()
+            
+            if index_number in students and passwords[index_number] == pin:
+                student_grades = grades.get(index_number, [])
+                if student_grades:
+                    response = f"END Welcome {students[index_number]}\n\nRESULTS:\n"
+                    response += "\n".join(student_grades)
+                    response += "\n\nThank you"
                 else:
-                    response = "END Invalid Index Number or Password"
+                    response = "END No results found for this index number"
             else:
-                response = "END Invalid format.\nUse: IndexNumber*Password"
-        except Exception as e:
-            response = "END An error occurred. Try again"
+                response = "END Invalid Index Number or Password"
+        except:
+            response = "END Invalid format. Use: IndexNumber*Password"
 
-    # Arkesel MUST get text/plain
     return Response(response, mimetype='text/plain', status=200)
 
 if __name__ == '__main__':
