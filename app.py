@@ -1,26 +1,17 @@
 from flask import Flask, request, jsonify
-from openpyxl import load_workbook
 
 app = Flask(__name__)
 
-# Load Excel
-wb = load_workbook('data.xlsx')
-sheet = wb['students']
-
-students = {}
-for row in sheet.iter_rows(min_row=2, values_only=True):
-    if row[0]: # skip empty
-        index = str(row[0]).strip().upper()
-        name = str(row[1]).strip()
-        password = str(row[2]).strip()
-        students[index] = {'name': name, 'password': password}
-
-print("LOADED STUDENTS:", students)
+# Hardcoded students - matches your data.xlsx
+students = {
+    "BCITD22003": {"name": "ERIC ORLEANS BOHAM", "password": "EOB22"},
+    "BCITD22004": {"name": "JOHN KWAD WOYTE", "password": "JK22"},
+    "BCITD22005": {"name": "AMA ADJEI", "password": "AA22"}
+}
 
 @app.route('/ussd', methods=['POST'])
 def ussd():
     data = request.get_json()
-    
     session_id = data.get('sessionID', '')
     user_id = data.get('userID', '')
     msisdn = data.get('msisdn', '')
@@ -39,17 +30,17 @@ def ussd():
             password = password.strip()
             
             if index in students and students[index]['password'] == password:
-                name = students[index]['name']
-                msg = f"Welcome {name}\nLogin Successful"
+                msg = f"Welcome {students[index]['name']}\nLogin Successful"
             else:
                 msg = "Invalid Index or Password"
-                
-            return jsonify({"sessionID": session_id, "userID": user_id, "msisdn": msisdn, "message": msg, "continueSession": False})
         except:
-            return jsonify({"sessionID": session_id, "userID": user_id, "msisdn": msisdn, "message": "Wrong format. Use: Index*Password", "continueSession": False})
+            msg = "Wrong format. Use: Index*Password"
+        return jsonify({"sessionID": session_id, "userID": user_id, "msisdn": msisdn, "message": msg, "continueSession": False})
 
     if user_input == '2':
         return jsonify({"sessionID": session_id, "userID": user_id, "msisdn": msisdn, "message": "Goodbye", "continueSession": False})
+
+    return jsonify({"sessionID": session_id, "userID": user_id, "msisdn": msisdn, "message": "Invalid option", "continueSession": False})
 
 if __name__ == '__main__':
     app.run()
