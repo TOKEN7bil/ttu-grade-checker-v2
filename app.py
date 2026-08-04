@@ -1,16 +1,23 @@
 from flask import Flask, request, jsonify
-import pandas as pd
+from openpyxl import load_workbook
 
 app = Flask(__name__)
 
-# Load your excel
-df = pd.read_excel('results.xlsx')
+# Load Excel with openpyxl
+wb = load_workbook('data.xlsx')
+sheet = wb.active
+
+# Convert to dictionary
+students = {}
+headers = [cell.value for cell in sheet[1]]
+for row in sheet.iter_rows(min_row=2, values_only=True):
+    data = dict(zip(headers, row))
+    students[data['IndexNumber']] = data
 
 @app.route('/ussd', methods=['POST'])
 def ussd():
     data = request.get_json()
     user_input = data.get('input', '')
-    session_id = data.get('session_id', '')
 
     # Step 1: Show menu
     if user_input == '':
@@ -30,10 +37,8 @@ def ussd():
     if '*' in user_input:
         try:
             index, password = user_input.split('*')
-            student = df[(df['IndexNumber'] == index) & (df['Password'] == password)]
-            
-            if not student.empty:
-                grade = student.iloc[0]['Grade']
+            if index in students and str(students[index]['Password']) == password:
+                grade = students[index]['Grade']
                 return jsonify({
                     "response": f"Your Grade: {grade}\nThank you",
                     "type": "end"
