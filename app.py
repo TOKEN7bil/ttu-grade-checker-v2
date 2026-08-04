@@ -11,16 +11,17 @@ students = {
 @app.route('/ussd/', methods=['POST'])
 def ussd():
     data = request.get_json()
-    print("FULL DATA:", data) # for logs
+    print("FULL DATA:", data)
     
     session_id = data.get('sessionID', '')
     user_id = data.get('userID', '')
     msisdn = data.get('msisdn', '')
     
-    # ARKESEL USES 'text' NOT 'message'
-    user_input = data.get('message', data.get('text', ''))
+    # ARKESEL USES 'userData'!!!
+    user_input = data.get('userData', '')
+    new_session = data.get('newSession', True)
 
-    if user_input == '':
+    if new_session or user_input == '':
         message = "Welcome to TTU Results Checker\n1. Login to view grades\n2. Exit"
         continue_session = True
     
