@@ -21,14 +21,11 @@ def load_results():
         reader = csv.DictReader(f)
         for row in reader:
             idx = row['index_number'].strip().upper()
-            sem = row['semester'].strip()
-            course = f"{row['course_code'].strip()}: {row['grade'].strip()}"
+            course = f"{row['course_code'].strip()}: {row['grade'].strip()}" # NO SEMESTER
             
             if idx not in results:
-                results[idx] = {}
-            if sem not in results[idx]:
-                results[idx][sem] = []
-            results[idx][sem].append(course)
+                results[idx] = []
+            results[idx].append(course)
     return results
 
 students = load_students()
@@ -55,10 +52,9 @@ def ussd():
             
             if index in students and students[index]['password'] == password:
                 if index in results:
-                    msg = f"Welcome {students[index]['name']}\n\n"
-                    for sem, courses in results[index].items():
-                        msg += f"{sem}:\n" + "\n".join(courses) + "\n\n"
-                    msg += "Thank you"
+                    msg = f"Welcome {students[index]['name']}\n\nRESULTS:\n"
+                    msg += "\n".join(results[index]) # NO SEMESTER LOOP
+                    msg += "\n\nThank you"
                     return reply(session_id, data, msg, False)
                 else:
                     return reply(session_id, data, "No results found for this index", False)
