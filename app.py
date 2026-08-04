@@ -7,13 +7,13 @@ app = Flask(__name__)
 def load_students():
     students = {}
     try:
-        with open('data_students.csv', 'r', encoding='utf-8') as f:
+        with open('data_students.csv', 'r', encoding='utf-8-sig') as f: # utf-8-sig kills BOM
             reader = csv.DictReader(f)
             for row in reader:
-                students[row['index_number'].strip().upper()] = {
-                    "name": row['full_name'].strip(),
-                    "password": row['password'].strip()
-                }
+                index = row['index_number'].strip().upper()
+                name = row['full_name'].strip()
+                password = row['password'].strip() # strip spaces
+                students[index] = {"name": name, "password": password}
         print(f"✅ SUCCESS: Loaded {len(students)} students: {list(students.keys())}")
     except Exception as e:
         print(f"❌ ERROR LOADING STUDENTS: {e}")
@@ -22,12 +22,11 @@ def load_students():
 def load_results():
     results = {}
     try:
-        with open('data_grades.csv', 'r', encoding='utf-8') as f:
+        with open('data_grades.csv', 'r', encoding='utf-8-sig') as f: # utf-8-sig
             reader = csv.DictReader(f)
             for row in reader:
                 idx = row['index_number'].strip().upper()
                 course = f"{row['course_code'].strip()}: {row['grade'].strip()}"
-
                 if idx not in results:
                     results[idx] = []
                 results[idx].append(course)
@@ -47,7 +46,7 @@ def ussd():
     user_input = data.get('userData', '').strip()
     new_session = data.get('newSession', True)
 
-    print(f"REQUEST: newSession={new_session}, input={user_input}") # DEBUG
+    print(f"REQUEST: newSession={new_session}, input='{user_input}'")
 
     # STEP 1: WELCOME
     if new_session or user_input == '':
@@ -63,20 +62,29 @@ def ussd():
             parts = user_input.split('*')
             index = parts[0].strip().upper()
             password = parts[1].strip()
-            print(f"LOGIN ATTEMPT: {index}") # DEBUG
+            print(f"LOGIN ATTEMPT: index='{index}' password='{password}'")
 
-            if index in students and students[index]['password'] == password:
-                print(f"LOGIN SUCCESS: {index}")
-                if index in results:
-                    msg = f"Welcome {students[index]['name']}\n\nRESULTS:\n"
-                    msg += "\n".join(results[index])
-                    msg += "\n\nThank you"
-                    return reply(session_id, data, msg, False) # END
+            if index in students:
+                csv_password = students[index]['password']
+                print(f"DEBUG CSV PASSWORD: '{csv_password}'")
+                print(f"DEBUG TYPED PASSWORD: '{password}'")
+                print(f"DEBUG MATCH: {csv_password == password}")
+
+                if csv_password == password:
+                    print(f"LOGIN SUCCESS: {index}")
+                    if index in results:
+                        msg = f"Welcome {students[index]['name']}\n\nRESULTS:\n"
+                        msg += "\n".join(results[index])
+                        msg += "\n\nThank you"
+                        return reply(session_id, data, msg, False)
+                    else:
+                        return reply(session_id, data, "No results found for this index", False)
                 else:
-                    return reply(session_id, data, "No results found for this index", False)
+                    return reply(session_id, data, "Invalid Password", False)
             else:
-                print(f"LOGIN FAILED: {index} not found or wrong password")
-                return reply(session_id, data, "Invalid Index or Password", False)
+                print(f"LOGIN FAILED: Index {index} not found")
+                return reply(session_id, data, "Invalid Index", False)
+                
         except Exception as e:
             print(f"ERROR: {e}")
             return reply(session_id, data, "Wrong format. Use: Index*Password", True)
