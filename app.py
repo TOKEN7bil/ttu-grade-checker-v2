@@ -5,65 +5,81 @@ app = Flask(__name__)
 
 # Load Excel
 wb = load_workbook('data.xlsx')
-students_sheet = wb['students']
-grades_sheet = wb['grades']
+sheet = wb['students']
 
-# Load students into dict
 students = {}
-for row in students_sheet.iter_rows(min_row=2, values_only=True):
+for row in sheet.iter_rows(min_row=2, values_only=True):
     index, name, password = row
     students[index] = {'name': name, 'password': password}
-
-# Load grades into dict
-grades = {}
-for row in grades_sheet.iter_rows(min_row=2, values_only=True):
-    index, course, grade = row
-    if index not in grades:
-        grades[index] = []
-    grades[index].append(f"{course}: {grade}")
 
 @app.route('/ussd', methods=['POST'])
 def ussd():
     data = request.get_json()
-    user_input = data.get('input', '')
+    
+    session_id = data.get('sessionID', '')
+    user_id = data.get('userID', '')
+    msisdn = data.get('msisdn', '')
+    user_input = data.get('message', '') # Arkesel calls it "message" not "input"
 
-    # Step 1: Menu
+    # Step 1: Welcome Menu
     if user_input == '':
         return jsonify({
-            "response": "Welcome to TTU Results Checker\n1. Check Results\n2. Exit",
-            "type": "response"
+            "sessionID": session_id,
+            "userID": user_id,
+            "msisdn": msisdn,
+            "message": "Welcome to TTU Results Checker\n1. Login to view grades\n2. Exit",
+            "continueSession": True
         })
 
-    # Step 2: Ask for login
+    # Step 2: Ask for credentials
     if user_input == '1':
         return jsonify({
-            "response": "Enter IndexNumber*Password",
-            "type": "response"
+            "sessionID": session_id,
+            "userID": user_id,
+            "msisdn": msisdn,
+            "message": "Enter IndexNumber*Password",
+            "continueSession": True
         })
 
-    # Step 3: Check login and show results
+    # Step 3: Check login
     if '*' in user_input:
         try:
             index, password = user_input.split('*')
-            
             if index in students and str(students[index]['password']) == password:
                 name = students[index]['name']
-                
-                if index in grades:
-                    result_text = f"Results for {name}\n"
-                    for g in grades[index]:
-                        result_text += g + "\n"
-                    result_text += "Thank you"
-                    return jsonify({"response": result_text, "type": "end"})
-                else:
-                    return jsonify({"response": f"Welcome {name}\nNo grades found", "type": "end"})
+                return jsonify({
+                    "sessionID": session_id,
+                    "userID": user_id,
+                    "msisdn": msisdn,
+                    "message": f"Welcome {name}\nLogin Successful",
+                    "continueSession": False
+                })
             else:
-                return jsonify({"response": "Invalid Index or Password", "type": "end"})
+                return jsonify({
+                    "sessionID": session_id,
+                    "userID": user_id,
+                    "msisdn": msisdn,
+                    "message": "Invalid Index or Password",
+                    "continueSession": False
+                })
         except:
-            return jsonify({"response": "Wrong format. Use: Index*Password", "type": "end"})
+            return jsonify({
+                "sessionID": session_id,
+                "userID": user_id,
+                "msisdn": msisdn,
+                "message": "Wrong format. Use: Index*Password",
+                "continueSession": False
+            })
 
+    # Exit
     if user_input == '2':
-        return jsonify({"response": "Goodbye", "type": "end"})
+        return jsonify({
+            "sessionID": session_id,
+            "userID": user_id,
+            "msisdn": msisdn,
+            "message": "Goodbye",
+            "continueSession": False
+        })
 
 if __name__ == '__main__':
     app.run()
