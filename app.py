@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, Response
 import csv
 import os
 
@@ -28,14 +28,17 @@ def load_grades():
 students, passwords = load_students()
 grades = load_grades()
 
-@app.route('/', methods=['GET', 'POST']) # <-- CHANGED THIS
+@app.route('/ussd/', methods=['GET', 'POST']) # <-- CHANGED TO /ussd/
 def ussd():
-    session_id = request.form.get('sessionId')
-    service_code = request.form.get('serviceCode')
-    phone_number = request.form.get('phoneNumber')
-    text = request.form.get('text')
+    if request.method == 'GET':
+        return Response("CON Welcome to TTU Grade Checker\n1. Check Results", mimetype='text/plain')
+    
+    session_id = request.values.get('sessionId', '')
+    service_code = request.values.get('serviceCode', '')
+    phone_number = request.values.get('phoneNumber', '')
+    text = request.values.get('text', '')
 
-    if text == '' or text == None:
+    if text == '':
         response = "CON Welcome to TTU Grade Checker\n"
         response += "1. Check Results"
     elif text == '1':
@@ -49,16 +52,19 @@ def ussd():
             
             if index_number in students and passwords[index_number] == pin:
                 student_grades = grades.get(index_number, [])
-                response = f"END Welcome {students[index_number]}\n\n"
-                response += "RESULTS:\n"
-                response += "\n".join(student_grades)
-                response += "\n\nThank you"
+                if student_grades:
+                    response = f"END Welcome {students[index_number]}\n\n"
+                    response += "RESULTS:\n"
+                    response += "\n".join(student_grades)
+                    response += "\n\nThank you"
+                else:
+                    response = "END No results found for this index number"
             else:
                 response = "END Invalid Index Number or Password"
         except:
             response = "END Invalid format. Use: IndexNumber*Password"
 
-    return response, 200, {'Content-Type': 'text/plain'}
+    return Response(response, mimetype='text/plain')
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
