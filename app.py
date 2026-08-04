@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request
 
 app = Flask(__name__)
 
@@ -8,41 +8,47 @@ students = {
     "BCITD22005": {"name": "AMA ADJEI", "password": "AA22"}
 }
 
-@app.route('/ussd', methods=['POST'])
-@app.route('/ussd/', methods=['POST']) # ADD THIS LINE
+@app.route('/ussd/', methods=['POST'])
 def ussd():
-    data = request.get_json()
-    session_id = data.get('sessionID', '')
-    user_id = data.get('userID', '')
-    msisdn = data.get('msisdn', '')
-    user_input = data.get('message', '').strip()
+    # Arkesel sends form data, not JSON
+    session_id = request.form.get('sessionId', '')
+    service_code = request.form.get('serviceCode', '')
+    phone_number = request.form.get('phoneNumber', '')
+    text = request.form.get('text', '') # This is what user typed
 
-    print("GOT INPUT:", user_input) # For logs
+    print("TEXT RECEIVED:", text) # For logs
 
-    if user_input == '':
-        return jsonify({"sessionID": session_id, "userID": user_id, "msisdn": msisdn, "message": "Welcome to TTU Results Checker\n1. Login to view grades\n2. Exit", "continueSession": True})
-
-    if user_input == '1':
-        return jsonify({"sessionID": session_id, "userID": user_id, "msisdn": msisdn, "message": "Enter IndexNumber*Password", "continueSession": True})
-
-    if '*' in user_input:
+    if text == '':
+        # First screen
+        response = "CON Welcome to TTU Results Checker\n"
+        response += "1. Login to view grades\n"
+        response += "2. Exit"
+    
+    elif text == '1':
+        # Ask for login
+        response = "CON Enter IndexNumber*Password"
+    
+    elif '*' in text:
+        # They typed: BCITD22003*EOB22
         try:
-            index, password = user_input.split('*')
+            index, password = text.split('*')
             index = index.strip().upper()
             password = password.strip()
             
             if index in students and students[index]['password'] == password:
-                msg = f"Welcome {students[index]['name']}\nLogin Successful"
+                response = f"END Welcome {students[index]['name']}\nLogin Successful"
             else:
-                msg = "Invalid Index or Password"
+                response = "END Invalid Index or Password"
         except:
-            msg = "Wrong format. Use: Index*Password"
-        return jsonify({"sessionID": session_id, "userID": user_id, "msisdn": msisdn, "message": msg, "continueSession": False})
+            response = "END Wrong format. Use: Index*Password"
+    
+    elif text == '2':
+        response = "END Goodbye"
+    
+    else:
+        response = "END Invalid option"
 
-    if user_input == '2':
-        return jsonify({"sessionID": session_id, "userID": user_id, "msisdn": msisdn, "message": "Goodbye", "continueSession": False})
-
-    return jsonify({"sessionID": session_id, "userID": user_id, "msisdn": msisdn, "message": "Invalid option", "continueSession": False})
+    return response, 200, {'Content-Type': 'text/plain'}
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000) # Important for Render
+    app.run(host='0.0.0.0', port=10000)
