@@ -2,9 +2,6 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-# Temporary memory to remember who is logged in per session
-sessions = {}
-
 students = {
     "BCITD22003": {"name": "ERIC ORLEANS BOHAM", "password": "EOB22"},
     "BCITD22004": {"name": "JOHN KWAD WOYTE", "password": "JK22"},
@@ -33,56 +30,30 @@ def ussd():
     user_input = data.get('userData', '').strip()
     new_session = data.get('newSession', True)
 
-    # If new session, clear old data
-    if new_session:
-        if session_id in sessions:
-            del sessions[session_id]
+    # STEP 1: WELCOME
+    if new_session or user_input == '':
+        return reply(session_id, data, "Welcome to TTU Results Checker\n1. Check Results\n2. Exit", True)
 
-    # STEP 1: MAIN MENU
-    if user_input == '':
-        return reply(session_id, data, "Welcome to TTU Results Checker\n1. Login to view grades\n2. Exit", True)
-
-    # STEP 2: USER PRESSED 1
+    # STEP 2: ASK FOR LOGIN
     if user_input == '1':
-        sessions[session_id] = {"step": "login"}
         return reply(session_id, data, "Enter IndexNumber*Password", True)
 
-    # STEP 3: USER ENTERED LOGIN
-    if sessions.get(session_id, {}).get("step") == "login" and '*' in user_input:
+    # STEP 3: LOGIN + SHOW RESULTS IMMEDIATELY
+    if '*' in user_input:
         try:
             index, password = user_input.split('*')
             index = index.strip().upper()
             password = password.strip()
             
             if index in students and students[index]['password'] == password:
-                sessions[session_id] = {"step": "menu", "index": index} # REMEMBER THE STUDENT
-                msg = f"Welcome {students[index]['name']}\n1. View Sem 1 Results\n2. View Sem 2 Results\n3. Logout"
-                return reply(session_id, data, msg, True)
+                s1 = results[index]["Sem1"]
+                s2 = results[index]["Sem2"]
+                msg = f"Welcome {students[index]['name']}\n\nSEMESTER 1:\n{s1}\n\nSEMESTER 2:\n{s2}\n\nThank you"
+                return reply(session_id, data, msg, False) # END SESSION
             else:
-                del sessions[session_id]
-                return reply(session_id, data, "Invalid Index or Password\n1. Try Again\n2. Exit", True)
+                return reply(session_id, data, "Invalid Index or Password. Try again", False)
         except:
             return reply(session_id, data, "Wrong format. Use: Index*Password", True)
-
-    # STEP 4: USER IS IN MENU - CHECK IF LOGGED IN
-    if sessions.get(session_id, {}).get("step") == "menu":
-        index = sessions[session_id]["index"]
-        
-        if user_input == '1':
-            res = results[index]["Sem1"]
-            return reply(session_id, data, f"Semester 1 Results:\n{res}\n\n0. Back", True)
-        
-        if user_input == '2':
-            res = results[index]["Sem2"]
-            return reply(session_id, data, f"Semester 2 Results:\n{res}\n\n0. Back", True)
-        
-        if user_input == '3':
-            del sessions[session_id]
-            return reply(session_id, data, "Logged out. Goodbye", False)
-        
-        if user_input == '0':
-            msg = f"Welcome {students[index]['name']}\n1. View Sem 1 Results\n2. View Sem 2 Results\n3. Logout"
-            return reply(session_id, data, msg, True)
 
     if user_input == '2':
         return reply(session_id, data, "Goodbye", False)
