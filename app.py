@@ -9,8 +9,13 @@ sheet = wb['students']
 
 students = {}
 for row in sheet.iter_rows(min_row=2, values_only=True):
-    index, name, password = row
-    students[index] = {'name': name, 'password': password}
+    if row[0]: # skip empty rows
+        index = str(row[0]).strip().upper() # force uppercase, no spaces
+        name = str(row[1]).strip()
+        password = str(row[2]).strip()
+        students[index] = {'name': name, 'password': password}
+
+print("LOADED STUDENTS:", students) # Check Render logs
 
 @app.route('/ussd', methods=['POST'])
 def ussd():
@@ -19,67 +24,34 @@ def ussd():
     session_id = data.get('sessionID', '')
     user_id = data.get('userID', '')
     msisdn = data.get('msisdn', '')
-    user_input = data.get('message', '') # Arkesel calls it "message" not "input"
+    user_input = data.get('message', '').strip()
 
-    # Step 1: Welcome Menu
     if user_input == '':
-        return jsonify({
-            "sessionID": session_id,
-            "userID": user_id,
-            "msisdn": msisdn,
-            "message": "Welcome to TTU Results Checker\n1. Login to view grades\n2. Exit",
-            "continueSession": True
-        })
+        return jsonify({"sessionID": session_id, "userID": user_id, "msisdn": msisdn, "message": "Welcome to TTU Results Checker\n1. Login to view grades\n2. Exit", "continueSession": True})
 
-    # Step 2: Ask for credentials
     if user_input == '1':
-        return jsonify({
-            "sessionID": session_id,
-            "userID": user_id,
-            "msisdn": msisdn,
-            "message": "Enter IndexNumber*Password",
-            "continueSession": True
-        })
+        return jsonify({"sessionID": session_id, "userID": user_id, "msisdn": msisdn, "message": "Enter IndexNumber*Password", "continueSession": True})
 
-    # Step 3: Check login
     if '*' in user_input:
         try:
             index, password = user_input.split('*')
-            if index in students and str(students[index]['password']) == password:
+            index = index.strip().upper() # make input uppercase too
+            password = password.strip()
+            
+            print(f"TRYING: {index} with {password}") # Check Render logs
+            
+            if index in students and students[index]['password'] == password:
                 name = students[index]['name']
-                return jsonify({
-                    "sessionID": session_id,
-                    "userID": user_id,
-                    "msisdn": msisdn,
-                    "message": f"Welcome {name}\nLogin Successful",
-                    "continueSession": False
-                })
+                msg = f"Welcome {name}\nLogin Successful"
             else:
-                return jsonify({
-                    "sessionID": session_id,
-                    "userID": user_id,
-                    "msisdn": msisdn,
-                    "message": "Invalid Index or Password",
-                    "continueSession": False
-                })
-        except:
-            return jsonify({
-                "sessionID": session_id,
-                "userID": user_id,
-                "msisdn": msisdn,
-                "message": "Wrong format. Use: Index*Password",
-                "continueSession": False
-            })
+                msg = "Invalid Index or Password"
+                
+            return jsonify({"sessionID": session_id, "userID": user_id, "msisdn": msisdn, "message": msg, "continueSession": False})
+        except Exception as e:
+            return jsonify({"sessionID": session_id, "userID": user_id, "msisdn": msisdn, "message": f"Error: {str(e)}", "continueSession": False})
 
-    # Exit
     if user_input == '2':
-        return jsonify({
-            "sessionID": session_id,
-            "userID": user_id,
-            "msisdn": msisdn,
-            "message": "Goodbye",
-            "continueSession": False
-        })
+        return jsonify({"sessionID": session_id, "userID": user_id, "msisdn": msisdn, "message": "Goodbye", "continueSession": False})
 
 if __name__ == '__main__':
     app.run()
