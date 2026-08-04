@@ -2,6 +2,9 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
+# Temporary memory to remember who is logged in per session
+sessions = {}
+
 students = {
     "BCITD22003": {"name": "ERIC ORLEANS BOHAM", "password": "EOB22"},
     "BCITD22004": {"name": "JOHN KWAD WOYTE", "password": "JK22"},
@@ -27,57 +30,67 @@ results = {
 def ussd():
     data = request.get_json()
     session_id = data.get('sessionID', '')
-    user_input = data.get('userData', '')
+    user_input = data.get('userData', '').strip()
     new_session = data.get('newSession', True)
 
-    # Step 1: New session - Show menu
-    if new_session or user_input == '':
-        return response(session_id, data, "Welcome to TTU Results Checker\n1. Login to view grades\n2. Exit", True)
+    # If new session, clear old data
+    if new_session:
+        if session_id in sessions:
+            del sessions[session_id]
 
-    # Step 2: User pressed 1
+    # STEP 1: MAIN MENU
+    if user_input == '':
+        return reply(session_id, data, "Welcome to TTU Results Checker\n1. Login to view grades\n2. Exit", True)
+
+    # STEP 2: USER PRESSED 1
     if user_input == '1':
-        return response(session_id, data, "Enter IndexNumber*Password", True)
+        sessions[session_id] = {"step": "login"}
+        return reply(session_id, data, "Enter IndexNumber*Password", True)
 
-    # Step 3: User entered login details
-    if '*' in user_input:
+    # STEP 3: USER ENTERED LOGIN
+    if sessions.get(session_id, {}).get("step") == "login" and '*' in user_input:
         try:
             index, password = user_input.split('*')
             index = index.strip().upper()
             password = password.strip()
             
             if index in students and students[index]['password'] == password:
-                # Login success - show results menu
+                sessions[session_id] = {"step": "menu", "index": index} # REMEMBER THE STUDENT
                 msg = f"Welcome {students[index]['name']}\n1. View Sem 1 Results\n2. View Sem 2 Results\n3. Logout"
-                return response(session_id, data, msg, True)
+                return reply(session_id, data, msg, True)
             else:
-                return response(session_id, data, "Invalid Index or Password\n1. Try Again\n2. Exit", True)
+                del sessions[session_id]
+                return reply(session_id, data, "Invalid Index or Password\n1. Try Again\n2. Exit", True)
         except:
-            return response(session_id, data, "Wrong format. Use: Index*Password", True)
+            return reply(session_id, data, "Wrong format. Use: Index*Password", True)
 
-    # Step 4: User is in results menu - check last input
-    # We check if input is 1, 2, 3, or 0
-    if user_input == '1':
-        # Find which student by checking if we can get their name from previous login
-        # Arkesel keeps session_id same, so we assume user just logged in
-        # Better way: ask user to re-enter index, but for now let's use a temp fix
-        return response(session_id, data, "Please login again to view results", True)
-    
+    # STEP 4: USER IS IN MENU - CHECK IF LOGGED IN
+    if sessions.get(session_id, {}).get("step") == "menu":
+        index = sessions[session_id]["index"]
+        
+        if user_input == '1':
+            res = results[index]["Sem1"]
+            return reply(session_id, data, f"Semester 1 Results:\n{res}\n\n0. Back", True)
+        
+        if user_input == '2':
+            res = results[index]["Sem2"]
+            return reply(session_id, data, f"Semester 2 Results:\n{res}\n\n0. Back", True)
+        
+        if user_input == '3':
+            del sessions[session_id]
+            return reply(session_id, data, "Logged out. Goodbye", False)
+        
+        if user_input == '0':
+            msg = f"Welcome {students[index]['name']}\n1. View Sem 1 Results\n2. View Sem 2 Results\n3. Logout"
+            return reply(session_id, data, msg, True)
+
     if user_input == '2':
-        return response(session_id, data, "Please login again to view results", True)
-    
-    if user_input == '3':
-        return response(session_id, data, "Logged out successfully. Goodbye", False)
-    
-    if user_input == '0':
-        return response(session_id, data, "1. View Sem 1 Results\n2. View Sem 2 Results\n3. Logout", True)
+        return reply(session_id, data, "Goodbye", False)
 
-    if user_input == '2':
-        return response(session_id, data, "Goodbye", False)
-
-    return response(session_id, data, "Invalid option", True)
+    return reply(session_id, data, "Invalid option", True)
 
 
-def response(session_id, data, message, continue_session):
+def reply(session_id, data, message, continue_session):
     return jsonify({
         "sessionID": session_id,
         "userID": data.get('userID', ''),
