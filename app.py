@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
@@ -10,45 +10,52 @@ students = {
 
 @app.route('/ussd/', methods=['POST'])
 def ussd():
-    # Arkesel sends form data, not JSON
-    session_id = request.form.get('sessionId', '')
-    service_code = request.form.get('serviceCode', '')
-    phone_number = request.form.get('phoneNumber', '')
-    text = request.form.get('text', '') # This is what user typed
-
-    print("TEXT RECEIVED:", text) # For logs
-
-    if text == '':
-        # First screen
-        response = "CON Welcome to TTU Results Checker\n"
-        response += "1. Login to view grades\n"
-        response += "2. Exit"
+    data = request.get_json()
     
-    elif text == '1':
-        # Ask for login
-        response = "CON Enter IndexNumber*Password"
+    session_id = data.get('sessionID', '')
+    user_id = data.get('userID', '')
+    msisdn = data.get('msisdn', '')
+    user_input = data.get('message', '') # This is what user typed
+
+    if user_input == '':
+        message = "Welcome to TTU Results Checker\n1. Login to view grades\n2. Exit"
+        continue_session = True
     
-    elif '*' in text:
-        # They typed: BCITD22003*EOB22
+    elif user_input == '1':
+        message = "Enter IndexNumber*Password"
+        continue_session = True
+    
+    elif '*' in user_input:
         try:
-            index, password = text.split('*')
+            index, password = user_input.split('*')
             index = index.strip().upper()
             password = password.strip()
             
             if index in students and students[index]['password'] == password:
-                response = f"END Welcome {students[index]['name']}\nLogin Successful"
+                message = f"Welcome {students[index]['name']}\nLogin Successful"
+                continue_session = False
             else:
-                response = "END Invalid Index or Password"
+                message = "Invalid Index or Password"
+                continue_session = False
         except:
-            response = "END Wrong format. Use: Index*Password"
+            message = "Wrong format. Use: Index*Password"
+            continue_session = False
     
-    elif text == '2':
-        response = "END Goodbye"
+    elif user_input == '2':
+        message = "Goodbye"
+        continue_session = False
     
     else:
-        response = "END Invalid option"
+        message = "Invalid option"
+        continue_session = False
 
-    return response, 200, {'Content-Type': 'text/plain'}
+    return jsonify({
+        "sessionID": session_id,
+        "userID": user_id,
+        "msisdn": msisdn,
+        "message": message,
+        "continueSession": continue_session
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
