@@ -10,7 +10,7 @@ def load_students():
     with open('data_students.csv', 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
-            students[row['index_number']] = row['full_name'] # <-- full_name
+            students[row['index_number']] = row['full_name']
             passwords[row['index_number']] = row['password']
     return students, passwords
 
@@ -28,14 +28,14 @@ def load_grades():
 students, passwords = load_students()
 grades = load_grades()
 
-@app.route('/', methods=['POST'])
+@app.route('/', methods=['GET', 'POST']) # <-- CHANGED THIS
 def ussd():
     session_id = request.form.get('sessionId')
     service_code = request.form.get('serviceCode')
     phone_number = request.form.get('phoneNumber')
     text = request.form.get('text')
 
-    if text == '':
+    if text == '' or text == None:
         response = "CON Welcome to TTU Grade Checker\n"
         response += "1. Check Results"
     elif text == '1':
@@ -49,7 +49,7 @@ def ussd():
             
             if index_number in students and passwords[index_number] == pin:
                 student_grades = grades.get(index_number, [])
-                response = f"END Welcome {students[index_number]}\n\n" # shows ERIC ORLEANS BOHAM
+                response = f"END Welcome {students[index_number]}\n\n"
                 response += "RESULTS:\n"
                 response += "\n".join(student_grades)
                 response += "\n\nThank you"
