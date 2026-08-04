@@ -9,13 +9,13 @@ sheet = wb['students']
 
 students = {}
 for row in sheet.iter_rows(min_row=2, values_only=True):
-    if row[0]: # skip empty rows
-        index = str(row[0]).strip().upper() # force uppercase, no spaces
+    if row[0]: # skip empty
+        index = str(row[0]).strip().upper()
         name = str(row[1]).strip()
         password = str(row[2]).strip()
         students[index] = {'name': name, 'password': password}
 
-print("LOADED STUDENTS:", students) # Check Render logs
+print("LOADED STUDENTS:", students)
 
 @app.route('/ussd', methods=['POST'])
 def ussd():
@@ -35,10 +35,8 @@ def ussd():
     if '*' in user_input:
         try:
             index, password = user_input.split('*')
-            index = index.strip().upper() # make input uppercase too
+            index = index.strip().upper()
             password = password.strip()
-            
-            print(f"TRYING: {index} with {password}") # Check Render logs
             
             if index in students and students[index]['password'] == password:
                 name = students[index]['name']
@@ -47,8 +45,8 @@ def ussd():
                 msg = "Invalid Index or Password"
                 
             return jsonify({"sessionID": session_id, "userID": user_id, "msisdn": msisdn, "message": msg, "continueSession": False})
-        except Exception as e:
-            return jsonify({"sessionID": session_id, "userID": user_id, "msisdn": msisdn, "message": f"Error: {str(e)}", "continueSession": False})
+        except:
+            return jsonify({"sessionID": session_id, "userID": user_id, "msisdn": msisdn, "message": "Wrong format. Use: Index*Password", "continueSession": False})
 
     if user_input == '2':
         return jsonify({"sessionID": session_id, "userID": user_id, "msisdn": msisdn, "message": "Goodbye", "continueSession": False})
