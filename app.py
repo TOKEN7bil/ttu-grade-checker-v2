@@ -47,15 +47,15 @@ def ussd():
     inputs = text.split('*')
 
     if text == "":
-        message = "CON Welcome to TTU Grade Checker\n1. Login to view grades\n2. Exit"
+        message = " Welcome to TTU Results Checker\n1. Login to view grades\n2. Exit"
         response_type = "response"
     
     elif text == "1":
-        message = "CON Enter your Index Number:"
+        message = " Enter your Index Number:"
         response_type = "response"
     
     elif len(inputs) == 2:
-        message = "CON Enter your Password:"
+        message = " Enter your Password:"
         response_type = "response"
     
     elif len(inputs) == 3:
@@ -77,7 +77,7 @@ def ussd():
         response_type = "end"
     
     elif text == "2":
-        message = "END Thank you for using TTU Grade Checker"
+        message = "END Thank you for using TTU Results Checker"
         response_type = "end"
     
     else:
