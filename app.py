@@ -1,74 +1,63 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request
+import csv
+import os
 
 app = Flask(__name__)
 
-students = {
-    "BCITD22003": {"name": "ERIC ORLEANS BOHAM", "password": "EOB22"},
-    "BCITD22004": {"name": "JOHN KWAD WOYTE", "password": "JK22"},
-    "BCITD22005": {"name": "AMA ADJEI", "password": "AA22"}
-}
+def load_students():
+    students = {}
+    with open('data_students.csv', 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            students[row['index_number']] = row['full_name']
+    return students
 
-results = {
-    "BCITD22003": {
-        "Sem1": "CS101: A\nMATH101: B+\nICT101: A\nGPA: 3.67",
-        "Sem2": "CS102: A\nMATH102: A\nDB101: B\nGPA: 3.75"
-    },
-    "BCITD22004": {
-        "Sem1": "CS101: B\nMATH101: C+\nICT101: B\nGPA: 2.89",
-        "Sem2": "CS102: B+\nMATH102: B\nDB101: A\nGPA: 3.25"
-    },
-    "BCITD22005": {
-        "Sem1": "CS101: A\nMATH101: A\nICT101: A\nGPA: 4.00",
-        "Sem2": "CS102: A-\nMATH102: B+\nDB101: A\nGPA: 3.80"
-    }
-}
+def load_grades():
+    grades = {}
+    with open('data_grades.csv', 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            idx = row['index_number']
+            if idx not in grades:
+                grades[idx] = []
+            grades[idx].append(f"{row['course_code']}: {row['grade']}")
+    return grades
 
-@app.route('/ussd/', methods=['POST'])
+students = load_students()
+grades = load_grades()
+
+@app.route('/', methods=['POST'])
 def ussd():
-    data = request.get_json()
-    session_id = data.get('sessionID', '')
-    user_input = data.get('userData', '').strip()
-    new_session = data.get('newSession', True)
+    session_id = request.form.get('sessionId')
+    service_code = request.form.get('serviceCode')
+    phone_number = request.form.get('phoneNumber')
+    text = request.form.get('text')
 
-    # STEP 1: WELCOME
-    if new_session or user_input == '':
-        return reply(session_id, data, "Welcome to TTU Results Checker\n1. Check Results\n2. Exit", True)
-
-    # STEP 2: ASK FOR LOGIN
-    if user_input == '1':
-        return reply(session_id, data, "Enter IndexNumber*Password", True)
-
-    # STEP 3: LOGIN + SHOW RESULTS IMMEDIATELY
-    if '*' in user_input:
+    if text == '':
+        response = "CON Welcome to TTU Grade Checker\n"
+        response += "1. Check Results"
+    elif text == '1':
+        response = "CON Enter IndexNumber*FullName\n"
+        response += "Example: BCITD22003*ERIC ORLEANS BOHAM"
+    else:
         try:
-            index, password = user_input.split('*')
-            index = index.strip().upper()
-            password = password.strip()
+            index_name = text.split('*')
+            index_number = index_name[0].strip()
+            full_name = index_name[1].strip().upper()
             
-            if index in students and students[index]['password'] == password:
-                s1 = results[index]["Sem1"]
-                s2 = results[index]["Sem2"]
-                msg = f"Welcome {students[index]['name']}\n\nSEMESTER 1:\n{s1}\n\nSEMESTER 2:\n{s2}\n\nThank you"
-                return reply(session_id, data, msg, False) # END SESSION
+            if index_number in students and students[index_number].upper() == full_name:
+                student_grades = grades.get(index_number, [])
+                response = f"END Welcome {students[index_number]}\n\n"
+                response += "RESULTS:\n"
+                response += "\n".join(student_grades)
+                response += "\n\nThank you"
             else:
-                return reply(session_id, data, "Invalid Index or Password. Try again", False)
+                response = "END Invalid Index Number or Name"
         except:
-            return reply(session_id, data, "Wrong format. Use: Index*Password", True)
+            response = "END Invalid format. Use: IndexNumber*FullName"
 
-    if user_input == '2':
-        return reply(session_id, data, "Goodbye", False)
-
-    return reply(session_id, data, "Invalid option", True)
-
-
-def reply(session_id, data, message, continue_session):
-    return jsonify({
-        "sessionID": session_id,
-        "userID": data.get('userID', ''),
-        "msisdn": data.get('msisdn', ''),
-        "message": message,
-        "continueSession": continue_session
-    })
+    return response, 200, {'Content-Type': 'text/plain'}
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
