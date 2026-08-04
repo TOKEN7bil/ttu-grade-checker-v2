@@ -1,4 +1,4 @@
-from flask import Flask, request, Response
+from flask import Flask, request, jsonify
 import csv
 import os
 
@@ -28,17 +28,16 @@ def load_grades():
 students, passwords = load_students()
 grades = load_grades()
 
-@app.route('/ussd/', methods=['GET', 'POST']) # <-- MATCHES YOUR ARKESEL URL
+@app.route('/ussd/', methods=['POST'])
 def ussd():
-    if request.method == 'GET':
-        return Response("CON Welcome to TTU Grade Checker\n1. Check Results", mimetype='text/plain')
-    
-    text = request.values.get('text', '')
+    text = request.form.get('text', '')
 
     if text == '':
-        response = "CON Welcome to TTU Grade Checker\n1. Check Results"
+        response = "Result Checker\n1. Check Results"
+        cont = True
     elif text == '1':
-        response = "CON Enter IndexNumber*Password\nExample: BCITD22003*EOB22"
+        response = "Enter IndexNumber*Password\nExample: BCITD22003*EOB22"
+        cont = True
     else:
         try:
             parts = text.split('*')
@@ -48,17 +47,23 @@ def ussd():
             if index_number in students and passwords[index_number] == pin:
                 student_grades = grades.get(index_number, [])
                 if student_grades:
-                    response = f"END Welcome {students[index_number]}\n\nRESULTS:\n"
+                    response = f"Welcome {students[index_number]}\n\nRESULTS:\n"
                     response += "\n".join(student_grades)
                     response += "\n\nThank you"
                 else:
-                    response = "END No results found for this index number"
+                    response = "No results found for this index number"
+                cont = False
             else:
-                response = "END Invalid Index Number or Password"
+                response = "Invalid Index Number or Password"
+                cont = False
         except:
-            response = "END Invalid format. Use: IndexNumber*Password"
+            response = "Invalid format. Use: IndexNumber*Password"
+            cont = False
 
-    return Response(response, mimetype='text/plain', status=200)
+    return jsonify({
+        "message": response,
+        "continueSession": cont
+    })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
