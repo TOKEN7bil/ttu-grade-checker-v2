@@ -54,7 +54,7 @@ def ussd():
 
     # STEP 2: ASK FOR LOGIN
     if user_input == '1':
-        return reply(session_id, data, "Enter IndexNumber*Password\nExample: BCITD22003*EOB22", True)
+        return reply(session_id, data, "Enter IndexNumber*Password", True)
 
     # STEP 3: LOGIN + SHOW ALL RESULTS
     if '*' in user_input:
